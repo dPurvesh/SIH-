@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pramaan_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pramaan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pramaan_secure_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-pramaan_aicte}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pramaan -d pramaan_aicte"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: pramaan_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_secure}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: pramaan_minio_init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin_secure;
+      /usr/bin/mc mb --with-lock myminio/aicte-worm-evidence || true;
+      /usr/bin/mc version enable myminio/aicte-worm-evidence || true;
+      echo 'MinIO WORM bucket initialized';
+      exit 0;
+      "
+
+  redis:
+    image: redis:7-alpine
+    container_name: pramaan_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
+  redisdata:
