@@ -1,0 +1,14 @@
+backend/
+backend/.venv/
+backend/__pycache__/
+backend/storage/
+backend/pramaan.db
+backend/*.pt
+scratch/
+sample_test_documents/
+*.md
+*.docx
+*.txt
+*.bat
+*.png
+docker-compose.yml
