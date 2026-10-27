@@ -452,14 +452,21 @@ def reset_colleges_endpoint(db: Session = Depends(get_db)):
 @app.post("/api/system/reseed-demo-colleges")
 def reseed_demo_colleges_endpoint(db: Session = Depends(get_db)):
     """Reseeds the 3 sample demo colleges (Scenarios A, B, C) and sample authority registry on demand."""
-    from seed import seed_demo_colleges
+    from seed import seed_demo_colleges, seed_system_rules_and_users, reset_all_colleges
     from services.authority_gateway import reseed_authoritative_registry
-    seed_demo_colleges(db)
-    reseed_authoritative_registry()
-    return {
-        "status": "success",
-        "message": "Sample demo colleges and authority registry reseeded successfully."
-    }
+    try:
+        reset_all_colleges(db)
+        seed_system_rules_and_users(db)
+        seed_demo_colleges(db)
+        reseed_authoritative_registry()
+        return {
+            "status": "success",
+            "message": "Sample demo colleges and authority registry reseeded successfully."
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/applications/{app_id}/upload-infrastructure")

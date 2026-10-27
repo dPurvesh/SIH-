@@ -34,6 +34,10 @@ COPY --from=frontend-builder /app/frontend ./frontend
 COPY start_unified.sh .
 RUN chmod +x start_unified.sh
 
+# Environment variables
+ENV SEED_DEMO_COLLEGES=true
+ENV PYTHONUNBUFFERED=1
+
 # Expose web port
 EXPOSE 3000
 
