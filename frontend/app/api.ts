@@ -1,4 +1,23 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+/**
+ * Dynamic API Base resolution:
+ * - Client Browser (typeof window !== 'undefined'): Always use relative path ''
+ *   unless a remote HTTPS URL is explicitly provided in NEXT_PUBLIC_API_URL.
+ *   This routes all /api/* requests through the Next.js reverse proxy to the FastAPI backend,
+ *   preventing Mixed Content (HTTP over HTTPS) blocks and localhost connection errors on Render.
+ * - Server-side (SSR / Node): Connects to FastAPI on http://127.0.0.1:8000.
+ */
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && !envUrl.includes('127.0.0.1') && !envUrl.includes('localhost')) {
+      return envUrl.replace(/\/$/, '');
+    }
+    return '';
+  }
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+}
+
+export const API_BASE = getApiBase();
 
 export interface Institution {
   id: number;

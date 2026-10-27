@@ -107,7 +107,7 @@ export default function Navbar() {
               />
             </span>
             <span className="text-slate-600 font-mono text-[10px]">
-              {isOnline ? 'LIVE PORT:8000' : 'CONNECTING...'}
+              {isOnline ? 'SOVEREIGN ENGINE LIVE' : 'CONNECTING...'}
             </span>
           </div>
 
