@@ -169,6 +169,10 @@ def compute_visual_embedding(image_bytes: bytes) -> List[float]:
     else:
         vec = np.zeros(512, dtype=np.float32)
 
+    del img_pil, img_cv, hsv, grad_mag
+    import gc
+    gc.collect()
+
     return [round(float(x), 6) for x in vec.tolist()]
 
 def check_visual_duplicates(

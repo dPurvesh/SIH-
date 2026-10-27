@@ -5,9 +5,10 @@ echo "=================================================="
 echo " Starting PRAMAAN-AICTE Unified Full-Stack Engine"
 echo "=================================================="
 
-# Export configuration flags
-export SEED_DEMO_COLLEGES=true
+# Export configuration flags - Lean memory mode for 512MB RAM cloud container
+export SEED_DEMO_COLLEGES=false
 export PYTHONUNBUFFERED=1
+export NODE_OPTIONS="--max-old-space-size=180"
 
 # 1. Start FastAPI backend on internal port 8000
 echo "--> Launching FastAPI backend on 127.0.0.1:8000..."

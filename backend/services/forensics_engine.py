@@ -141,6 +141,11 @@ def run_ela_analysis(image_bytes: bytes, quality: int = 90) -> Dict[str, Any]:
     heatmap_filename = f"ela_{uuid.uuid4().hex[:12]}.jpg"
     heatmap_key = storage_manager.save_heatmap(heatmap_filename, heatmap_bytes)
 
+    # Free memory buffers immediately
+    del orig_cv, blended, thermal_colormap, diff_np, gray_residual, encoded_img
+    import gc
+    gc.collect()
+
     return {
         "anomaly_score": anomaly_score,
         "mean_residual": round(mean_residual, 2),

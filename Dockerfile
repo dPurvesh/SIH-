@@ -34,9 +34,10 @@ COPY --from=frontend-builder /app/frontend ./frontend
 COPY start_unified.sh .
 RUN chmod +x start_unified.sh
 
-# Environment variables
-ENV SEED_DEMO_COLLEGES=true
+# Environment variables - Lean memory mode for 512MB RAM tier
+ENV SEED_DEMO_COLLEGES=false
 ENV PYTHONUNBUFFERED=1
+ENV NODE_OPTIONS="--max-old-space-size=180"
 
 # Expose web port
 EXPOSE 3000
