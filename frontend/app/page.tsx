@@ -208,24 +208,34 @@ export default function OverviewDashboard() {
   const handleDetectGPS = () => {
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       setLocationDetecting(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = Number(pos.coords.latitude.toFixed(6));
-          const lng = Number(pos.coords.longitude.toFixed(6));
-          setCreateForm(f => ({
-            ...f,
-            registered_lat: lat,
-            registered_lng: lng,
-          }));
-          setLocationDetecting(false);
-          setAutoFilledBadge(`Hardware GPS locked to current position: ${lat}, ${lng} (±${Math.round(pos.coords.accuracy)}m)`);
-        },
-        (err) => {
-          setLocationDetecting(false);
-          alert('GPS permission was denied or signal unavailable.');
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
+
+      const tryGeo = (highAccuracy: boolean) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = Number(pos.coords.latitude.toFixed(6));
+            const lng = Number(pos.coords.longitude.toFixed(6));
+            setCreateForm(f => ({
+              ...f,
+              registered_lat: lat,
+              registered_lng: lng,
+            }));
+            setLocationDetecting(false);
+            setAutoFilledBadge(`GPS locked to current position: ${lat}, ${lng} (±${Math.round(pos.coords.accuracy)}m)`);
+          },
+          (err) => {
+            if (highAccuracy) {
+              // Try standard Wi-Fi/network accuracy (essential for Windows laptops & desktops without satellite GPS)
+              tryGeo(false);
+            } else {
+              setLocationDetecting(false);
+              alert(`GPS could not acquire position (${err.message || 'Signal unavailable'}). Please verify browser location permissions.`);
+            }
+          },
+          { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 10000, maximumAge: 30000 }
+        );
+      };
+
+      tryGeo(true);
     } else {
       alert('Geolocation is not supported by your browser.');
     }

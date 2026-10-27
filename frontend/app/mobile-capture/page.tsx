@@ -35,14 +35,15 @@ export default function MobileCapturePage() {
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
 
-  useEffect(() => {
-    fetchApplications().then((data) => {
-      setApps(data);
-      if (data.length > 0) setSelectedAppId(data[0].id);
-    });
+  const requestGeolocation = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      setGeoStatus('GPS NOT SUPPORTED');
+      return;
+    }
 
-    // Real Hardware Geolocation
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+    setGeoStatus('ACQUIRING GPS LOCK...');
+
+    const tryGeo = (highAccuracy: boolean) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setCoords({
@@ -50,15 +51,31 @@ export default function MobileCapturePage() {
             lng: Number(pos.coords.longitude.toFixed(6)),
             accuracy: Math.round(pos.coords.accuracy),
           });
-          setGeoStatus('GPS HARDWARE LOCKED');
+          setGeoStatus(highAccuracy ? 'GPS HARDWARE LOCKED' : 'NETWORK/WIFI LOCKED');
         },
         (err) => {
-          setGeoStatus('CAMPUS GEOFENCE SEED');
+          if (highAccuracy) {
+            // Fall back to standard Wi-Fi/network accuracy (essential for laptops without GPS satellite chip)
+            tryGeo(false);
+          } else {
+            console.warn('Geolocation error:', err);
+            setGeoStatus('CAMPUS GEOFENCE SEED');
+          }
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 4000 : 10000, maximumAge: 30000 }
       );
-    }
+    };
 
+    tryGeo(true);
+  };
+
+  useEffect(() => {
+    fetchApplications().then((data) => {
+      setApps(data);
+      if (data.length > 0) setSelectedAppId(data[0].id);
+    });
+
+    requestGeolocation();
     startCamera();
 
     return () => {
@@ -69,18 +86,36 @@ export default function MobileCapturePage() {
   const startCamera = async () => {
     try {
       setCameraError('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      let stream: MediaStream;
+
+      // Tier 1: Try environment camera (ideal for mobile devices)
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+      } catch (envErr) {
+        // Tier 2: Fall back to any available camera/webcam (essential for Windows laptops and MacBooks)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video auto-play prevented:', playErr);
+        }
+        setStreamActive(true);
+      } else {
         setStreamActive(true);
       }
     } catch (err: any) {
       console.warn('Camera access error:', err);
-      setCameraError('Camera feed unavailable or permissions denied. You may upload a photo directly.');
+      setCameraError(err.message || 'Camera feed unavailable or permissions denied. You may upload a photo directly.');
       setStreamActive(false);
     }
   };
@@ -223,30 +258,40 @@ export default function MobileCapturePage() {
 
             {/* Viewfinder Frame */}
             <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 aspect-video flex items-center justify-center">
-              {streamActive ? (
-                <video
-                  ref={videoRef}
-                  playsInline
-                  autoPlay
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="p-8 text-center space-y-3">
+              <video
+                ref={videoRef}
+                playsInline
+                autoPlay
+                muted
+                className={`w-full h-full object-cover ${streamActive ? 'block' : 'hidden'}`}
+              />
+
+              {!streamActive && (
+                <div className="p-8 text-center space-y-3 z-10">
                   <VideoOff size={32} className="mx-auto text-slate-500" />
                   <p className="text-xs text-slate-400 max-w-sm">
                     {cameraError || 'Camera feed paused or requires permissions.'}
                   </p>
-                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition-all shadow-xs">
-                    <Camera size={14} />
-                    <span>Upload Snapshot Image</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold cursor-pointer transition-all shadow-xs"
+                    >
+                      <RefreshCw size={13} />
+                      <span>Start / Allow Camera</span>
+                    </button>
+                    <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition-all shadow-xs">
+                      <Camera size={13} />
+                      <span>Upload Snapshot Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -257,6 +302,14 @@ export default function MobileCapturePage() {
                   <div className="flex items-center gap-2">
                     <MapPin size={13} className="text-rose-400" />
                     <span>{coords ? `${coords.lat}°N, ${coords.lng}°E (±${coords.accuracy}m)` : 'GPS ACQUIRING...'}</span>
+                    <button
+                      type="button"
+                      onClick={requestGeolocation}
+                      title="Refresh GPS lock"
+                      className="pointer-events-auto p-1 hover:bg-white/10 rounded transition-colors text-cyan-200"
+                    >
+                      <RefreshCw size={11} />
+                    </button>
                   </div>
                   <div className="flex items-center gap-2">
                     <Navigation size={13} className="text-indigo-400" />
