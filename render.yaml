@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pramaan-aicte-fullstack
+    env: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 3000
